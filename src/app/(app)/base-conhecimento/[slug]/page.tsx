@@ -75,7 +75,7 @@ export default async function ArtigoPage({ params }: Props) {
             <span>{artigo.visualizacoes} visualizações</span>
           </div>
           <div className="flex flex-wrap gap-1 mt-3">
-            {artigo.tags.map((tag) => (
+            {artigo.tags.map((tag: string) => (
               <span key={tag} className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{tag}</span>
             ))}
           </div>
