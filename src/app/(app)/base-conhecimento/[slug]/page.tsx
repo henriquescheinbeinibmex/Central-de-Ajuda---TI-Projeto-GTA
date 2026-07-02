@@ -24,11 +24,13 @@ export default async function ArtigoPage({ params }: Props) {
 
   if (!artigo || !artigo.publicado) notFound();
 
-  // Incrementa visualizações (fire-and-forget, não bloqueia renderização)
-  prisma.artigo.update({
-    where: { id: artigo.id },
-    data: { visualizacoes: { increment: 1 } },
-  }).catch(() => {});
+  // Incrementa visualizações apenas para usuários não-TI (evita inflar com acessos de edição)
+  if (session?.user.role !== "CONSULTOR_TI") {
+    prisma.artigo.update({
+      where: { id: artigo.id },
+      data: { visualizacoes: { increment: 1 } },
+    }).catch(() => {});
+  }
 
   // Formata markdown simples (negrito e itens de lista)
   function renderSolucao(texto: string) {

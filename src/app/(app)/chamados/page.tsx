@@ -12,13 +12,12 @@ export default async function ChamadosPage({ searchParams }: Props) {
   const { status, categoria } = await searchParams;
 
   const ehTI = session?.user.role === "CONSULTOR_TI";
-  const ehGestor = session?.user.role === "GESTOR";
 
+  // Colaboradores e gestores veem todos os chamados do seu setor
   const where: Record<string, unknown> = {
     ...(status ? { status } : {}),
     ...(categoria ? { categoriaId: categoria } : {}),
-    ...(!ehTI && !ehGestor ? { autorId: session?.user.id } : {}),
-    ...(ehGestor ? { setorId: session?.user.setorId ?? undefined } : {}),
+    ...(!ehTI ? { setorId: session?.user.setorId ?? undefined } : {}),
   };
 
   const [chamados, categorias] = await Promise.all([
@@ -40,7 +39,7 @@ export default async function ChamadosPage({ searchParams }: Props) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">
-            {ehTI ? "Todos os chamados" : ehGestor ? "Chamados do setor" : "Meus chamados"}
+            {ehTI ? "Todos os chamados" : "Chamados do meu setor"}
           </h1>
           <p className="text-slate-500 text-sm mt-1">{chamados.length} chamado{chamados.length !== 1 ? "s" : ""}</p>
         </div>

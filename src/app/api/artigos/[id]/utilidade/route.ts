@@ -6,6 +6,10 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const session = await auth();
   if (!session) return NextResponse.json({ erro: "Não autenticado" }, { status: 401 });
 
+  if (session.user.role === "CONSULTOR_TI") {
+    return NextResponse.json({ erro: "Consultores TI não votam em artigos" }, { status: 403 });
+  }
+
   const { id } = await params;
   try {
     await prisma.artigo.update({

@@ -46,11 +46,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       comentario: comentario ?? null,
     }).catch(() => {});
   } else {
+    // Colaborador confirmou resolução → valida imediatamente, sem esperar 14 dias
     await prisma.chamado.update({
       where: { id },
       data: {
         feedbackColaborador: feedback,
         feedbackComentario: comentario ?? null,
+        status: "VALIDADO",
+        dataValidacao: new Date(),
+        historico: {
+          create: {
+            status: "VALIDADO",
+            observacao: `Colaborador confirmou que o problema foi resolvido${comentario ? `: ${comentario}` : ""}`,
+            usuarioId: session.user.id,
+          },
+        },
       },
     });
   }
