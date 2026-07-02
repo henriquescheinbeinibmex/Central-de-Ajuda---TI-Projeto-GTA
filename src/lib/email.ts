@@ -1,0 +1,125 @@
+import nodemailer from "nodemailer";
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT ?? 587),
+  secure: Number(process.env.SMTP_PORT) === 465,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+// Destinatários de TI lidos de TI_NOTIFICATION_EMAILS (separados por vírgula)
+function destinatariosTI(fallback?: string): string {
+  const lista = process.env.TI_NOTIFICATION_EMAILS ?? "";
+  const emails = lista.split(",").map((e) => e.trim()).filter(Boolean);
+  if (emails.length > 0) return emails.join(", ");
+  return fallback ?? "";
+}
+
+function baseHtml(conteudo: string) {
+  return `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #1e293b;">
+      <div style="background: #1d4ed8; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+        <h2 style="margin: 0; color: white; font-size: 18px;">Central de Ajuda de TI — Esteio Superatacado</h2>
+      </div>
+      <div style="border: 1px solid #e2e8f0; border-top: none; padding: 24px; border-radius: 0 0 8px 8px;">
+        ${conteudo}
+        <p style="margin-top: 32px; color: #94a3b8; font-size: 12px; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+          Email enviado automaticamente pela Central de Ajuda de TI.
+        </p>
+      </div>
+    </div>`;
+}
+
+// ── 1. Novo chamado aberto ──────────────────────────────────────────
+export async function enviarEmailNovoChamado(params: {
+  chamadoId: string;
+  chamadoTitulo: string;
+  setor: string;
+  urgencia: string;
+}) {
+  const to = destinatariosTI();
+  if (!to) return;
+
+  const url = `${process.env.NEXTAUTH_URL}/chamados/${params.chamadoId}`;
+  const urgenciaLabel: Record<string, string> = {
+    ALTA: "🔴 Alta", MEDIA: "🟡 Média", BAIXA: "🟢 Baixa",
+  };
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to,
+    subject: `[Central TI] Novo chamado: ${params.chamadoTitulo}`,
+    html: baseHtml(`
+      <p style="font-size: 16px; font-weight: 600; margin-bottom: 4px;">📋 Novo chamado aberto</p>
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 16px 0;">
+        <p style="margin: 0 0 8px 0;"><strong>Título:</strong> ${params.chamadoTitulo}</p>
+        <p style="margin: 0 0 8px 0;"><strong>Setor:</strong> ${params.setor}</p>
+        <p style="margin: 0;"><strong>Urgência:</strong> ${urgenciaLabel[params.urgencia] ?? params.urgencia}</p>
+      </div>
+      <a href="${url}" style="background: #1d4ed8; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block; font-weight: 600;">
+        Ver chamado →
+      </a>
+    `),
+  });
+}
+
+// ── 2. Chamado reaberto pelo colaborador ───────────────────────────
+export async function enviarEmailChamadoReaberto(params: {
+  chamadoId: string;
+  chamadoTitulo: string;
+  comentario?: string | null;
+}) {
+  const to = destinatariosTI();
+  if (!to) return;
+
+  const url = `${process.env.NEXTAUTH_URL}/chamados/${params.chamadoId}`;
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to,
+    subject: `[Central TI] Chamado reaberto: ${params.chamadoTitulo}`,
+    html: baseHtml(`
+      <p style="font-size: 16px; font-weight: 600; margin-bottom: 4px;">🔄 Chamado reaberto pelo colaborador</p>
+      <p>O colaborador indicou que o problema <strong>não foi resolvido</strong> e o chamado foi reaberto automaticamente.</p>
+      <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 16px; margin: 16px 0;">
+        <p style="margin: 0 0 8px 0;"><strong>Chamado:</strong> ${params.chamadoTitulo}</p>
+        ${params.comentario ? `<p style="margin: 0;"><strong>Comentário:</strong> ${params.comentario}</p>` : ""}
+      </div>
+      <a href="${url}" style="background: #ea580c; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block; font-weight: 600;">
+        Ver chamado →
+      </a>
+    `),
+  });
+}
+
+// ── 3. Prazo de validação vencido (chamado pelo cron diário) ───────
+export async function enviarEmailValidacao(params: {
+  consultorEmail?: string;
+  consultorNome: string;
+  chamadoId: string;
+  chamadoTitulo: string;
+}) {
+  const to = destinatariosTI(params.consultorEmail);
+  if (!to) return;
+
+  const url = `${process.env.NEXTAUTH_URL}/chamados/${params.chamadoId}`;
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to,
+    subject: `[Central TI] Chamado pronto para validação: ${params.chamadoTitulo}`,
+    html: baseHtml(`
+      <p style="font-size: 16px; font-weight: 600; margin-bottom: 4px;">🎉 Prazo de validação atingido</p>
+      <p>O prazo de 14 dias para validação do chamado abaixo foi atingido sem reincidência. Por favor, confirme a validação.</p>
+      <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 16px 0;">
+        <strong>${params.chamadoTitulo}</strong>
+      </div>
+      <a href="${url}" style="background: #16a34a; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block; font-weight: 600;">
+        Validar chamado →
+      </a>
+    `),
+  });
+}

@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  COLABORADOR
+  CONSULTOR_TI
+  GESTOR
+}
+
+enum Urgencia {
+  BAIXA
+  MEDIA
+  ALTA
+}
+
+enum StatusChamado {
+  ABERTO
+  EM_ANDAMENTO
+  SOLUCAO_PROPOSTA
+  VALIDADO
+  REABERTO
+}
+
+enum CanalOrigem {
+  SITE
+  LIGACAO_URGENTE
+}
+
+model User {
+  id        String    @id @default(cuid())
+  nome      String
+  username  String    @unique
+  email     String    @unique
+  senha     String
+  role      Role      @default(COLABORADOR)
+  setorId   String?
+  setor     Setor?    @relation(fields: [setorId], references: [id])
+  chamadosAbertos   Chamado[] @relation("AutorChamado")
+  chamadosAtendidos Chamado[] @relation("ConsultorChamado")
+  artigos   Artigo[]
+  criadoEm  DateTime  @default(now())
+  atualizadoEm DateTime @updatedAt
+}
+
+model Setor {
+  id       String    @id @default(cuid())
+  nome     String    @unique
+  usuarios User[]
+  chamados Chamado[]
+  criadoEm DateTime  @default(now())
+}
+
+model Categoria {
+  id       String    @id @default(cuid())
+  nome     String    @unique
+  icone    String?
+  chamados Chamado[]
+  artigos  Artigo[]
+  criadoEm DateTime  @default(now())
+}
+
+model Artigo {
+  id             String    @id @default(cuid())
+  slug           String    @unique
+  titulo         String
+  descricaoProb  String    @db.Text
+  solucao        String    @db.Text
+  tags           String[]
+  categoriaId    String
+  categoria      Categoria @relation(fields: [categoriaId], references: [id])
+  autorId        String
+  autor          User      @relation(fields: [autorId], references: [id])
+  visualizacoes  Int       @default(0)
+  utilidade      Int       @default(0)
+  publicado      Boolean   @default(true)
+  chamadoOrigemId String?  @unique
+  chamadoOrigem  Chamado?  @relation(fields: [chamadoOrigemId], references: [id])
+  criadoEm       DateTime  @default(now())
+  atualizadoEm   DateTime  @updatedAt
+}
+
+model Chamado {
+  id                   String        @id @default(cuid())
+  titulo               String
+  descricao            String        @db.Text
+  urgencia             Urgencia      @default(BAIXA)
+  canal                CanalOrigem   @default(SITE)
+  registradoAposLig    Boolean       @default(false)
+  status               StatusChamado @default(ABERTO)
+  categoriaId          String
+  categoria            Categoria     @relation(fields: [categoriaId], references: [id])
+  setorId              String
+  setor                Setor         @relation(fields: [setorId], references: [id])
+  autorId              String
+  autor                User          @relation("AutorChamado", fields: [autorId], references: [id])
+  solicitanteNome      String?
+  consultorId          String?
+  consultor            User?         @relation("ConsultorChamado", fields: [consultorId], references: [id])
+  solucaoProposta      String?       @db.Text
+  dataSolucao          DateTime?
+  dataValidacao        DateTime?
+  validadoEm           DateTime?
+  feedbackColaborador  String?
+  feedbackComentario   String?
+  artigo               Artigo?
+  historico            HistoricoStatus[]
+  criadoEm             DateTime      @default(now())
+  atualizadoEm         DateTime      @updatedAt
+}
+
+model HistoricoStatus {
+  id         String        @id @default(cuid())
+  chamadoId  String
+  chamado    Chamado       @relation(fields: [chamadoId], references: [id], onDelete: Cascade)
+  status     StatusChamado
+  observacao String?
+  usuarioId  String?
+  criadoEm   DateTime      @default(now())
+}
