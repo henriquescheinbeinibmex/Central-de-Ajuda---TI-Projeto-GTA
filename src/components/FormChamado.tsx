@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import SeletorAnexos, { uploadAnexos } from "@/components/SeletorAnexos";
 
 interface Categoria { id: string; nome: string; icone: string | null }
 interface Setor { id: string; nome: string }
@@ -25,6 +26,7 @@ export default function FormChamado({ categorias, setores, autorId, setorIdPadra
   const [categoriaId, setCategoriaId] = useState("");
   const [setorId, setSetorId] = useState(setorIdPadrao ?? "");
   const [urgencia, setUrgencia] = useState("BAIXA");
+  const [anexos, setAnexos] = useState<File[]>([]);
   const [sugestoes, setSugestoes] = useState<ArtigoSugestao[]>([]);
   const [buscando, setBuscando] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -83,6 +85,16 @@ export default function FormChamado({ categorias, setores, autorId, setorIdPadra
     }
 
     const data = await res.json();
+
+    // Sobe os anexos selecionados para o chamado recém-criado
+    if (anexos.length > 0) {
+      try {
+        await uploadAnexos(data.id, anexos, "ABERTURA");
+      } catch {
+        // Não bloqueia a criação do chamado se um anexo falhar
+      }
+    }
+
     router.push(`/chamados/${data.id}`);
     router.refresh();
   }
@@ -258,6 +270,8 @@ export default function FormChamado({ categorias, setores, autorId, setorIdPadra
             <option value="ALTA">Alta — impede completamente o trabalho (ligar para o TI)</option>
           </select>
         </div>
+
+        <SeletorAnexos arquivos={anexos} onChange={setAnexos} label="Anexos (opcional) — print, foto, vídeo…" />
 
         {erro && <p className="text-red-600 text-sm bg-red-50 px-4 py-2 rounded-lg">{erro}</p>}
 

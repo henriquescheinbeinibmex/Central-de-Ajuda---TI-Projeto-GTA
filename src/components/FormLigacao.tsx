@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import SeletorAnexos, { uploadAnexos } from "@/components/SeletorAnexos";
 
 interface Categoria { id: string; nome: string; icone: string | null }
 interface Setor { id: string; nome: string }
@@ -23,6 +24,7 @@ export default function FormLigacao({ categorias, setores, autorId, consultorId 
   const [setorId, setSetorId] = useState("");
   const [urgencia, setUrgencia] = useState("ALTA");
   const [jaResolvido, setJaResolvido] = useState(false);
+  const [anexos, setAnexos] = useState<File[]>([]);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
 
@@ -65,6 +67,15 @@ export default function FormLigacao({ categorias, setores, autorId, consultorId 
     }
 
     const data = await res.json();
+
+    if (anexos.length > 0) {
+      try {
+        await uploadAnexos(data.id, anexos, "LIGACAO");
+      } catch {
+        // Não bloqueia o registro se um anexo falhar
+      }
+    }
+
     router.push(`/chamados/${data.id}`);
     router.refresh();
   }
@@ -164,6 +175,8 @@ export default function FormLigacao({ categorias, setores, autorId, consultorId 
           <option value="BAIXA">Baixa — não impedia o trabalho</option>
         </select>
       </div>
+
+      <SeletorAnexos arquivos={anexos} onChange={setAnexos} label="Anexos (opcional) — foto, vídeo…" />
 
       {erro && <p className="text-red-600 text-sm bg-red-50 px-4 py-2 rounded-lg">{erro}</p>}
 

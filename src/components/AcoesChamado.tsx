@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import SeletorAnexos, { uploadAnexos } from "@/components/SeletorAnexos";
 
 interface Props {
   chamado: {
@@ -31,6 +32,7 @@ export default function AcoesChamado({ chamado, sessaoId, sessaoRole, sessaoSeto
     (ehTI || (sessaoRole === "GESTOR" && sessaoSetorId === chamado.setorId));
 
   const [solucao, setSolucao] = useState(chamado.solucaoProposta ?? "");
+  const [anexosSolucao, setAnexosSolucao] = useState<File[]>([]);
   const [feedbackComentario, setFeedbackComentario] = useState("");
   const [motivoReprovacao, setMotivoReprovacao] = useState("");
   const [mostrarFeedback, setMostrarFeedback] = useState(false);
@@ -45,6 +47,25 @@ export default function AcoesChamado({ chamado, sessaoId, sessaoRole, sessaoSeto
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    setSalvando(false);
+    router.refresh();
+  }
+
+  // Registra a solução e anexa os arquivos de instrução (se houver)
+  async function enviarSolucao() {
+    setSalvando(true);
+    await fetch(`/api/chamados/${chamado.id}/solucao`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ solucao }),
+    });
+    if (anexosSolucao.length > 0) {
+      try {
+        await uploadAnexos(chamado.id, anexosSolucao, "SOLUCAO");
+      } catch {
+        // Não bloqueia o registro da solução se um anexo falhar
+      }
+    }
     setSalvando(false);
     router.refresh();
   }
@@ -130,9 +151,10 @@ export default function AcoesChamado({ chamado, sessaoId, sessaoRole, sessaoSeto
                 placeholder="Descreva a solução aplicada…"
                 className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm resize-y text-slate-800"
               />
+              <SeletorAnexos arquivos={anexosSolucao} onChange={setAnexosSolucao} label="Anexos da solução (opcional) — print, vídeo de instrução…" />
               <div className="flex gap-2">
                 <button
-                  onClick={() => post(`/api/chamados/${chamado.id}/solucao`, { solucao })}
+                  onClick={enviarSolucao}
                   disabled={salvando || !solucao.trim()}
                   className="px-5 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-60 transition-colors"
                 >

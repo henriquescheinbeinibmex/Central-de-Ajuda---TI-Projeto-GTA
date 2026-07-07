@@ -130,6 +130,7 @@ model Chamado {
   slaAprovacaoNotificado Boolean     @default(false) // evita e-mail de SLA duplicado
   artigo               Artigo?
   historico            HistoricoStatus[]
+  anexos               Anexo[]
   criadoEm             DateTime      @default(now())
   atualizadoEm         DateTime      @updatedAt
 }
@@ -142,4 +143,21 @@ model HistoricoStatus {
   observacao String?
   usuarioId  String?
   criadoEm   DateTime      @default(now())
+}
+
+// Anexos de chamados (item 1/2/3): imagens, vídeos, PDFs, etc.
+model Anexo {
+  id         String   @id @default(cuid())
+  chamadoId  String
+  chamado    Chamado  @relation(fields: [chamadoId], references: [id], onDelete: Cascade)
+  // Origem: ABERTURA (colaborador), LIGACAO (TI) ou SOLUCAO (TI propondo)
+  origem     String   @default("ABERTURA")
+  nomeArquivo String
+  caminho    String   // caminho no bucket do Supabase Storage
+  tipo       String   // MIME type
+  tamanho    Int      // bytes
+  enviadoPorId String?
+  criadoEm   DateTime @default(now())
+
+  @@index([chamadoId])
 }

@@ -22,6 +22,7 @@ export default async function DetalheChamadoPage({ params }: Props) {
       consultor: { select: { id: true, nome: true } },
       historico: { orderBy: { criadoEm: "asc" } },
       artigo: { select: { slug: true, titulo: true } },
+      anexos: { orderBy: { criadoEm: "asc" } },
     },
   });
 
@@ -136,6 +137,32 @@ export default async function DetalheChamadoPage({ params }: Props) {
             <div className={`rounded-xl p-4 text-sm ${chamado.feedbackColaborador === "resolveu" ? "bg-green-50 border border-green-100 text-green-800" : "bg-red-50 border border-red-100 text-red-800"}`}>
               <p className="font-medium">{chamado.feedbackColaborador === "resolveu" ? "✅ Resolveu o problema" : "❌ Não resolveu o problema"}</p>
               {chamado.feedbackComentario && <p className="mt-1 text-slate-600">{chamado.feedbackComentario}</p>}
+            </div>
+          </div>
+        )}
+
+        {/* Anexos */}
+        {chamado.anexos.length > 0 && (
+          <div className="mb-5">
+            <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1.5">Anexos</p>
+            <div className="space-y-2">
+              {chamado.anexos.map((a) => (
+                <a
+                  key={a.id}
+                  href={`/api/anexos/${a.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm hover:border-primary-300 transition-colors"
+                >
+                  <span className="truncate text-slate-700">
+                    📎 {a.nomeArquivo}
+                    <span className="ml-2 text-xs text-slate-400">
+                      {a.origem === "SOLUCAO" ? "solução" : a.origem === "LIGACAO" ? "ligação" : "abertura"}
+                    </span>
+                  </span>
+                  <span className="text-xs text-primary-600 flex-shrink-0">Abrir →</span>
+                </a>
+              ))}
             </div>
           </div>
         )}
