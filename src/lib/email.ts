@@ -5,6 +5,17 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const FROM = process.env.SMTP_FROM ?? "Central TI <onboarding@resend.dev>";
 
+// O SDK do Resend NÃO lança exceção em falha — retorna { data, error }.
+// Este wrapper registra o erro no log para diagnóstico.
+async function enviar(opts: { from: string; to: string[]; subject: string; html: string }) {
+  const { data, error } = await resend.emails.send(opts);
+  if (error) {
+    console.error("[email:resend]", JSON.stringify(error), "→ destinatários:", opts.to.join(", "));
+    return;
+  }
+  console.log("[email:resend] enviado id=", data?.id, "→", opts.to.join(", "));
+}
+
 async function getDestinatariosTI(fallback?: string): Promise<string[]> {
   const consultores = await prisma.user.findMany({
     where: { role: "CONSULTOR_TI" },
@@ -45,7 +56,7 @@ export async function enviarEmailNovoChamado(params: {
     ALTA: "🔴 Alta", MEDIA: "🟡 Média", BAIXA: "🟢 Baixa",
   };
 
-  await resend.emails.send({
+  await enviar({
     from: FROM,
     to,
     subject: `[Central TI] Novo chamado: ${params.chamadoTitulo}`,
@@ -74,7 +85,7 @@ export async function enviarEmailChamadoReaberto(params: {
 
   const url = `${process.env.AUTH_URL}/chamados/${params.chamadoId}`;
 
-  await resend.emails.send({
+  await enviar({
     from: FROM,
     to,
     subject: `[Central TI] Chamado reaberto: ${params.chamadoTitulo}`,
@@ -104,7 +115,7 @@ export async function enviarEmailValidacao(params: {
 
   const url = `${process.env.AUTH_URL}/chamados/${params.chamadoId}`;
 
-  await resend.emails.send({
+  await enviar({
     from: FROM,
     to,
     subject: `[Central TI] Chamado pronto para validação: ${params.chamadoTitulo}`,
@@ -131,7 +142,7 @@ export async function enviarEmailSolucaoProposta(params: {
 }) {
   const url = `${process.env.AUTH_URL}/chamados/${params.chamadoId}`;
 
-  await resend.emails.send({
+  await enviar({
     from: FROM,
     to: [params.colaboradorEmail],
     subject: `[Central TI] Solução proposta para: ${params.chamadoTitulo}`,
