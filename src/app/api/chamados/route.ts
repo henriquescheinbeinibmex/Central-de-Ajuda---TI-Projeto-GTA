@@ -81,14 +81,20 @@ export async function POST(req: NextRequest) {
 
     // Notifica TI apenas para chamados abertos pelo colaborador via site
     // Chamados de ligação são registrados pelo próprio TI — não faz sentido notificá-lo
+    // IMPORTANTE: aguardamos (await) o envio. Sem await, a função serverless
+    // do Vercel é encerrada ao retornar a resposta e o email nunca é enviado.
     if (canalFinal === "SITE") {
       const setor = await prisma.setor.findUnique({ where: { id: setorId }, select: { nome: true } });
-      enviarEmailNovoChamado({
-        chamadoId: chamado.id,
-        chamadoTitulo: chamado.titulo,
-        setor: setor?.nome ?? "—",
-        urgencia: chamado.urgencia,
-      }).catch((err) => console.error("[email:novoChamado]", err?.message ?? err));
+      try {
+        await enviarEmailNovoChamado({
+          chamadoId: chamado.id,
+          chamadoTitulo: chamado.titulo,
+          setor: setor?.nome ?? "—",
+          urgencia: chamado.urgencia,
+        });
+      } catch (err) {
+        console.error("[email:novoChamado]", err instanceof Error ? err.message : err);
+      }
     }
 
     return NextResponse.json(chamado, { status: 201 });

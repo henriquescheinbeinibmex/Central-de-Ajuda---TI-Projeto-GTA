@@ -40,11 +40,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       },
     });
 
-    enviarEmailChamadoReaberto({
-      chamadoId: id,
-      chamadoTitulo: chamado.titulo,
-      comentario: comentario ?? null,
-    }).catch((err) => console.error("[email:reaberto]", err?.message ?? err));
+    // await obrigatório: sem ele a função serverless encerra antes do envio
+    try {
+      await enviarEmailChamadoReaberto({
+        chamadoId: id,
+        chamadoTitulo: chamado.titulo,
+        comentario: comentario ?? null,
+      });
+    } catch (err) {
+      console.error("[email:reaberto]", err instanceof Error ? err.message : err);
+    }
   } else {
     // Colaborador confirmou resolução → valida imediatamente, sem esperar 14 dias
     await prisma.chamado.update({
