@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { enviarEmailValidacao } from "@/lib/email";
+import { enviarEmailValidacao, enviarEmailSlaAprovacaoVencido } from "@/lib/email";
 
 // Executada diariamente pelo Vercel Cron (vercel.json)
 // Protegida por CRON_SECRET para evitar chamadas externas
@@ -42,5 +42,37 @@ export async function GET(req: NextRequest) {
   const enviados = resultados.filter((r) => r.status === "fulfilled").length;
   const erros = resultados.filter((r) => r.status === "rejected").length;
 
-  return NextResponse.json({ enviados, erros, total: chamados.length });
+  // SLA de aprovação do gestor: notifica o TI sobre chamados cujo prazo de
+  // aprovação já venceu e ainda não foram aprovados/reprovados nem notificados.
+  const aprovacoesVencidas = await prisma.chamado.findMany({
+    where: {
+      status: "AGUARDANDO_APROVACAO",
+      prazoAprovacao: { lt: agora },
+      slaAprovacaoNotificado: false,
+    },
+    include: { setor: { select: { nome: true } } },
+  });
+
+  const resultadosSla = await Promise.allSettled(
+    aprovacoesVencidas.map((c) =>
+      enviarEmailSlaAprovacaoVencido({
+        chamadoId: c.id,
+        chamadoTitulo: c.titulo,
+        setor: c.setor?.nome ?? "—",
+      })
+    )
+  );
+
+  // Marca como notificado para não reenviar todo dia
+  await prisma.chamado.updateMany({
+    where: { id: { in: aprovacoesVencidas.map((c) => c.id) } },
+    data: { slaAprovacaoNotificado: true },
+  });
+
+  const slaEnviados = resultadosSla.filter((r) => r.status === "fulfilled").length;
+
+  return NextResponse.json({
+    validacao: { enviados, erros, total: chamados.length },
+    slaAprovacao: { enviados: slaEnviados, total: aprovacoesVencidas.length },
+  });
 }
