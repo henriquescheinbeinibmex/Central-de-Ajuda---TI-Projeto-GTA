@@ -3,7 +3,10 @@ import { prisma } from "./prisma";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const FROM = process.env.SMTP_FROM ?? "Central TI <onboarding@resend.dev>";
+// Remetente. Precisa ser de um domínio VERIFICADO no Resend.
+// Padrão: onboarding@resend.dev (domínio de teste já verificado do Resend).
+// Em produção, o cliente define EMAIL_FROM com um endereço do domínio dele.
+const FROM = process.env.EMAIL_FROM ?? "Central TI <onboarding@resend.dev>";
 
 // O SDK do Resend NÃO lança exceção em falha — retorna { data, error }.
 // Este wrapper registra o erro no log para diagnóstico.
