@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       chamadoId: id,
       chamadoTitulo: chamado.titulo,
       comentario: comentario ?? null,
-    }).catch(() => {});
+    }).catch((err) => console.error("[email:reaberto]", err?.message ?? err));
   } else {
     // Colaborador confirmou resolução → valida imediatamente, sem esperar 14 dias
     await prisma.chamado.update({

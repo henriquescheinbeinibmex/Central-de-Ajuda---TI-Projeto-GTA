@@ -24,6 +24,7 @@ export default async function NovoChamadoPage({ searchParams }: Props) {
         autorId={session!.user.id}
         setorIdPadrao={session!.user.setorId}
         artigoConsultado={artigo}
+        ehTI={session!.user.role === "CONSULTOR_TI"}
       />
     </div>
   );

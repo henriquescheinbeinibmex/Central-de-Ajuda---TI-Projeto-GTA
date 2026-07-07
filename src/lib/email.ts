@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { prisma } from "./prisma";
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -10,10 +11,13 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Destinatários de TI lidos de TI_NOTIFICATION_EMAILS (separados por vírgula)
-function destinatariosTI(fallback?: string): string {
-  const lista = process.env.TI_NOTIFICATION_EMAILS ?? "";
-  const emails = lista.split(",").map((e) => e.trim()).filter(Boolean);
+// Destinatários TI: todos os usuários CONSULTOR_TI com email cadastrado
+async function getDestinatariosTI(fallback?: string): Promise<string> {
+  const consultores = await prisma.user.findMany({
+    where: { role: "CONSULTOR_TI" },
+    select: { email: true },
+  });
+  const emails = consultores.map((u) => u.email).filter(Boolean) as string[];
   if (emails.length > 0) return emails.join(", ");
   return fallback ?? "";
 }
@@ -40,7 +44,7 @@ export async function enviarEmailNovoChamado(params: {
   setor: string;
   urgencia: string;
 }) {
-  const to = destinatariosTI();
+  const to = await getDestinatariosTI();
   if (!to) return;
 
   const url = `${process.env.NEXTAUTH_URL}/chamados/${params.chamadoId}`;
@@ -72,7 +76,7 @@ export async function enviarEmailChamadoReaberto(params: {
   chamadoTitulo: string;
   comentario?: string | null;
 }) {
-  const to = destinatariosTI();
+  const to = await getDestinatariosTI();
   if (!to) return;
 
   const url = `${process.env.NEXTAUTH_URL}/chamados/${params.chamadoId}`;
@@ -102,7 +106,7 @@ export async function enviarEmailValidacao(params: {
   chamadoId: string;
   chamadoTitulo: string;
 }) {
-  const to = destinatariosTI(params.consultorEmail);
+  const to = await getDestinatariosTI(params.consultorEmail);
   if (!to) return;
 
   const url = `${process.env.NEXTAUTH_URL}/chamados/${params.chamadoId}`;

@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
         chamadoTitulo: chamado.titulo,
         setor: setor?.nome ?? "—",
         urgencia: chamado.urgencia,
-      }).catch(() => {});
+      }).catch((err) => console.error("[email:novoChamado]", err?.message ?? err));
     }
 
     return NextResponse.json(chamado, { status: 201 });

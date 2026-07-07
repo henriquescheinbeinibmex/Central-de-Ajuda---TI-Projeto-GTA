@@ -14,9 +14,10 @@ interface Props {
   autorId: string;
   setorIdPadrao: string | null;
   artigoConsultado?: string;
+  ehTI?: boolean;
 }
 
-export default function FormChamado({ categorias, setores, autorId, setorIdPadrao, artigoConsultado }: Props) {
+export default function FormChamado({ categorias, setores, autorId, setorIdPadrao, artigoConsultado, ehTI = false }: Props) {
   const router = useRouter();
 
   const [titulo, setTitulo] = useState("");
@@ -204,7 +205,7 @@ export default function FormChamado({ categorias, setores, autorId, setorIdPadra
             onChange={(e) => setDescricao(e.target.value)}
             required
             rows={4}
-            placeholder="Explique quando o problema começou, o que você tentou fazer e qualquer detalhe relevante"
+            placeholder="Siga este roteiro para ajudar o TI a te atender mais rápido: 1) O que você estava fazendo quando o problema ocorreu? 2) Qual mensagem de erro apareceu (copie o texto exato, se houver)? 3) Em qual sistema ou equipamento? 4) Quando o problema começou? 5) Outros colegas estão com o mesmo problema?"
             className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm text-slate-800 resize-y"
           />
         </div>
@@ -224,15 +225,24 @@ export default function FormChamado({ categorias, setores, autorId, setorIdPadra
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Setor *</label>
-            <select
-              value={setorId}
-              onChange={(e) => setSetorId(e.target.value)}
-              required
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm text-slate-700 bg-white"
-            >
-              <option value="">Selecionar</option>
-              {setores.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
-            </select>
+            {ehTI ? (
+              <select
+                value={setorId}
+                onChange={(e) => setSetorId(e.target.value)}
+                required
+                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm text-slate-700 bg-white"
+              >
+                <option value="">Selecionar</option>
+                {setores.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
+            ) : (
+              <>
+                <input type="hidden" value={setorId} readOnly />
+                <div className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-500 bg-slate-50">
+                  {setores.find((s) => s.id === setorId)?.nome ?? "Setor não definido"}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
