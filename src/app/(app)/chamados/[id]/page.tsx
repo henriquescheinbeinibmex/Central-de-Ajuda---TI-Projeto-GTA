@@ -118,6 +118,17 @@ export default async function DetalheChamadoPage({ params }: Props) {
           </div>
         )}
 
+        {/* Motivo de reprovação do gestor */}
+        {chamado.status === "REPROVADO" && chamado.motivoReprovacao && (
+          <div className="mb-5">
+            <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1.5">Reprovado pelo gestor</p>
+            <div className="bg-rose-50 border border-rose-100 rounded-xl p-4 text-sm text-rose-800">
+              <p className="whitespace-pre-wrap">{chamado.motivoReprovacao}</p>
+              <p className="mt-2 text-rose-600 font-medium">Procure o seu gestor pessoalmente para mais orientações.</p>
+            </div>
+          </div>
+        )}
+
         {/* Feedback do colaborador */}
         {chamado.feedbackColaborador && (
           <div className="mb-5">
@@ -145,6 +156,7 @@ export default async function DetalheChamadoPage({ params }: Props) {
             id: chamado.id,
             status: chamado.status,
             autorId: chamado.autorId,
+            setorId: chamado.setorId,
             consultorId: chamado.consultorId,
             feedbackColaborador: chamado.feedbackColaborador,
             feedbackComentario: chamado.feedbackComentario,
@@ -153,6 +165,7 @@ export default async function DetalheChamadoPage({ params }: Props) {
           }}
           sessaoId={session!.user.id}
           sessaoRole={session!.user.role}
+          sessaoSetorId={session!.user.setorId}
           consultores={consultores}
         />
       </div>

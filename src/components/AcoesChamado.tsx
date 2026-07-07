@@ -8,6 +8,7 @@ interface Props {
     id: string;
     status: string;
     autorId: string;
+    setorId: string;
     consultorId: string | null;
     feedbackColaborador: string | null;
     feedbackComentario: string | null;
@@ -16,18 +17,25 @@ interface Props {
   };
   sessaoId: string;
   sessaoRole: string;
+  sessaoSetorId: string | null;
   consultores: { id: string; nome: string }[];
 }
 
-export default function AcoesChamado({ chamado, sessaoId, sessaoRole, consultores }: Props) {
+export default function AcoesChamado({ chamado, sessaoId, sessaoRole, sessaoSetorId, consultores }: Props) {
   const router = useRouter();
   const ehTI = sessaoRole === "CONSULTOR_TI";
   const ehAutor = sessaoId === chamado.autorId;
+  // Gestor do mesmo setor do chamado (ou TI) pode aprovar/reprovar
+  const podeAprovar =
+    chamado.status === "AGUARDANDO_APROVACAO" &&
+    (ehTI || (sessaoRole === "GESTOR" && sessaoSetorId === chamado.setorId));
 
   const [solucao, setSolucao] = useState(chamado.solucaoProposta ?? "");
   const [feedbackComentario, setFeedbackComentario] = useState("");
+  const [motivoReprovacao, setMotivoReprovacao] = useState("");
   const [mostrarFeedback, setMostrarFeedback] = useState(false);
   const [mostrarSolucao, setMostrarSolucao] = useState(false);
+  const [mostrarReprovar, setMostrarReprovar] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
   async function post(url: string, body: Record<string, unknown>) {
@@ -43,6 +51,55 @@ export default function AcoesChamado({ chamado, sessaoId, sessaoRole, consultore
 
   return (
     <div className="border-t border-slate-100 pt-5 space-y-3">
+      {/* Gestor: aprovar ou reprovar chamado do setor */}
+      {podeAprovar && (
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-slate-700">Este chamado precisa da sua aprovação:</p>
+          {!mostrarReprovar ? (
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => post(`/api/chamados/${chamado.id}/aprovacao`, { acao: "aprovar" })}
+                disabled={salvando}
+                className="px-5 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-60 transition-colors"
+              >
+                ✅ Aprovar e encaminhar ao TI
+              </button>
+              <button
+                onClick={() => setMostrarReprovar(true)}
+                className="px-5 py-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-sm font-medium hover:bg-rose-100 transition-colors"
+              >
+                🚫 Reprovar
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-slate-600">
+                Explique claramente o motivo para orientar o colaborador (ex.: &quot;consulte o artigo nº XX&quot;):
+              </p>
+              <textarea
+                value={motivoReprovacao}
+                onChange={(e) => setMotivoReprovacao(e.target.value)}
+                rows={3}
+                placeholder="Motivo da reprovação e orientação ao colaborador…"
+                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-400 text-sm resize-y text-slate-800"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => post(`/api/chamados/${chamado.id}/aprovacao`, { acao: "reprovar", motivo: motivoReprovacao })}
+                  disabled={salvando || !motivoReprovacao.trim()}
+                  className="px-5 py-2.5 bg-rose-600 text-white rounded-lg text-sm font-medium hover:bg-rose-700 disabled:opacity-60 transition-colors"
+                >
+                  {salvando ? "Enviando…" : "Confirmar reprovação"}
+                </button>
+                <button onClick={() => setMostrarReprovar(false)} className="px-4 py-2.5 border border-slate-300 text-slate-600 rounded-lg text-sm hover:bg-slate-50 transition-colors">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* TI: assumir chamado */}
       {ehTI && chamado.status === "ABERTO" && (
         <button

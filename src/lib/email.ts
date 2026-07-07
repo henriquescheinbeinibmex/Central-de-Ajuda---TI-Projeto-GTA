@@ -135,6 +135,123 @@ export async function enviarEmailValidacao(params: {
   });
 }
 
+// ── Fluxo de aprovação do gestor (item 11) ─────────────────────────
+
+// Notifica os gestores do setor que há um chamado aguardando aprovação.
+export async function enviarEmailAprovacaoPendente(params: {
+  gestores: string[];
+  chamadoId: string;
+  chamadoTitulo: string;
+  autorNome: string;
+  setor: string;
+}) {
+  if (params.gestores.length === 0) return;
+  const url = `${process.env.AUTH_URL}/chamados/${params.chamadoId}`;
+
+  await enviar({
+    from: FROM,
+    to: params.gestores,
+    subject: `[Central TI] Chamado aguardando sua aprovação: ${params.chamadoTitulo}`,
+    html: baseHtml(`
+      <p style="font-size: 16px; font-weight: 600; margin-bottom: 4px;">📝 Chamado aguardando aprovação</p>
+      <p>Um colaborador do seu setor abriu um chamado que precisa da sua aprovação antes de seguir para o TI.</p>
+      <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 16px; margin: 16px 0;">
+        <p style="margin: 0 0 8px 0;"><strong>Título:</strong> ${params.chamadoTitulo}</p>
+        <p style="margin: 0 0 8px 0;"><strong>Solicitante:</strong> ${params.autorNome}</p>
+        <p style="margin: 0;"><strong>Setor:</strong> ${params.setor}</p>
+      </div>
+      <a href="${url}" style="background: #d97706; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block; font-weight: 600;">
+        Revisar e aprovar →
+      </a>
+    `),
+  });
+}
+
+// Avisa o colaborador que o chamado foi aprovado e seguiu para o TI.
+export async function enviarEmailChamadoAprovado(params: {
+  colaboradorEmail: string;
+  colaboradorNome: string;
+  chamadoId: string;
+  chamadoTitulo: string;
+  gestorNome: string;
+}) {
+  const url = `${process.env.AUTH_URL}/chamados/${params.chamadoId}`;
+
+  await enviar({
+    from: FROM,
+    to: [params.colaboradorEmail],
+    subject: `[Central TI] Chamado aprovado: ${params.chamadoTitulo}`,
+    html: baseHtml(`
+      <p style="font-size: 16px; font-weight: 600; margin-bottom: 4px;">✅ Seu chamado foi aprovado</p>
+      <p>Olá, <strong>${params.colaboradorNome}</strong>. O gestor <strong>${params.gestorNome}</strong> aprovou o seu chamado, que agora segue para o time de TI.</p>
+      <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 16px 0;">
+        <strong>${params.chamadoTitulo}</strong>
+      </div>
+      <a href="${url}" style="background: #16a34a; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block; font-weight: 600;">
+        Acompanhar chamado →
+      </a>
+    `),
+  });
+}
+
+// Avisa o colaborador que o chamado foi reprovado, com a justificativa do gestor.
+export async function enviarEmailChamadoReprovado(params: {
+  colaboradorEmail: string;
+  colaboradorNome: string;
+  chamadoId: string;
+  chamadoTitulo: string;
+  gestorNome: string;
+  motivo: string;
+}) {
+  const url = `${process.env.AUTH_URL}/chamados/${params.chamadoId}`;
+
+  await enviar({
+    from: FROM,
+    to: [params.colaboradorEmail],
+    subject: `[Central TI] Chamado reprovado: ${params.chamadoTitulo}`,
+    html: baseHtml(`
+      <p style="font-size: 16px; font-weight: 600; margin-bottom: 4px;">🚫 Seu chamado foi reprovado pelo gestor</p>
+      <p>Olá, <strong>${params.colaboradorNome}</strong>. O gestor <strong>${params.gestorNome}</strong> reprovou o seu chamado com a seguinte orientação:</p>
+      <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 16px; margin: 16px 0;">
+        <p style="margin: 0 0 8px 0;"><strong>Chamado:</strong> ${params.chamadoTitulo}</p>
+        <p style="margin: 0;"><strong>Orientação do gestor:</strong> ${params.motivo}</p>
+      </div>
+      <p>Procure o seu gestor pessoalmente para mais orientações antes de reabrir um novo chamado.</p>
+      <a href="${url}" style="background: #64748b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block; font-weight: 600;">
+        Ver detalhes →
+      </a>
+    `),
+  });
+}
+
+// Avisa o TI que o prazo (SLA) de aprovação do gestor venceu sem resposta.
+export async function enviarEmailSlaAprovacaoVencido(params: {
+  chamadoId: string;
+  chamadoTitulo: string;
+  setor: string;
+}) {
+  const to = await getDestinatariosTI();
+  if (to.length === 0) return;
+  const url = `${process.env.AUTH_URL}/chamados/${params.chamadoId}`;
+
+  await enviar({
+    from: FROM,
+    to,
+    subject: `[Central TI] Prazo de aprovação vencido: ${params.chamadoTitulo}`,
+    html: baseHtml(`
+      <p style="font-size: 16px; font-weight: 600; margin-bottom: 4px;">⏰ Prazo de aprovação do gestor vencido</p>
+      <p>Um chamado aguarda aprovação do gestor há mais tempo que o prazo previsto e o colaborador ainda não teve retorno.</p>
+      <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 16px 0;">
+        <p style="margin: 0 0 8px 0;"><strong>Chamado:</strong> ${params.chamadoTitulo}</p>
+        <p style="margin: 0;"><strong>Setor:</strong> ${params.setor}</p>
+      </div>
+      <a href="${url}" style="background: #dc2626; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block; font-weight: 600;">
+        Ver chamado →
+      </a>
+    `),
+  });
+}
+
 // ── 5. Recuperação de senha ────────────────────────────────────────
 export async function enviarEmailRecuperacaoSenha(params: {
   email: string;

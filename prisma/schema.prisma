@@ -19,6 +19,8 @@ enum Urgencia {
 }
 
 enum StatusChamado {
+  AGUARDANDO_APROVACAO
+  REPROVADO
   ABERTO
   EM_ANDAMENTO
   SOLUCAO_PROPOSTA
@@ -42,6 +44,7 @@ model User {
   setor     Setor?    @relation(fields: [setorId], references: [id])
   chamadosAbertos   Chamado[] @relation("AutorChamado")
   chamadosAtendidos Chamado[] @relation("ConsultorChamado")
+  chamadosAprovados Chamado[] @relation("GestorAprovador")
   artigos   Artigo[]
   criadoEm  DateTime  @default(now())
   atualizadoEm DateTime @updatedAt
@@ -118,6 +121,13 @@ model Chamado {
   validadoEm           DateTime?
   feedbackColaborador  String?
   feedbackComentario   String?
+  // Fluxo de aprovação do gestor (item 11)
+  prazoAprovacao       DateTime?     // SLA para o gestor responder
+  aprovadoPorId        String?       // gestor que aprovou/reprovou
+  aprovadoPor          User?         @relation("GestorAprovador", fields: [aprovadoPorId], references: [id])
+  aprovadoEm           DateTime?
+  motivoReprovacao     String?       @db.Text
+  slaAprovacaoNotificado Boolean     @default(false) // evita e-mail de SLA duplicado
   artigo               Artigo?
   historico            HistoricoStatus[]
   criadoEm             DateTime      @default(now())

@@ -37,11 +37,31 @@ export function formatarDataHora(data: Date | string): string {
 }
 
 export const statusLabel: Record<string, string> = {
+  AGUARDANDO_APROVACAO: "Aguardando aprovação do gestor",
+  REPROVADO: "Reprovado pelo gestor",
   ABERTO: "Chamados pendentes de atendimento",
   EM_ANDAMENTO: "Em andamento",
   SOLUCAO_PROPOSTA: "Solução proposta",
   VALIDADO: "Resolvido / Validado",
   REABERTO: "Reaberto",
+};
+
+// Adiciona N dias úteis (seg-sex) a uma data — usado nos prazos de SLA.
+export function adicionarDiasUteis(data: Date, dias: number): Date {
+  const resultado = new Date(data);
+  let restantes = dias;
+  while (restantes > 0) {
+    resultado.setDate(resultado.getDate() + 1);
+    const diaSemana = resultado.getDay();
+    if (diaSemana !== 0 && diaSemana !== 6) restantes--;
+  }
+  return resultado;
+}
+
+// SLA de aprovação do gestor por urgência (em dias úteis).
+export const slaAprovacaoDias: Record<string, number> = {
+  BAIXA: 3,
+  MEDIA: 1,
 };
 
 export const urgenciaLabel: Record<string, string> = {
@@ -51,6 +71,8 @@ export const urgenciaLabel: Record<string, string> = {
 };
 
 export const statusColor: Record<string, string> = {
+  AGUARDANDO_APROVACAO: "bg-amber-100 text-amber-800",
+  REPROVADO: "bg-rose-100 text-rose-800",
   ABERTO: "bg-yellow-100 text-yellow-800",
   EM_ANDAMENTO: "bg-primary-100 text-primary-800",
   SOLUCAO_PROPOSTA: "bg-purple-100 text-purple-800",

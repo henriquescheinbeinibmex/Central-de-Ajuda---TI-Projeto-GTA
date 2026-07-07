@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { enviarEmailNovoChamado } from "@/lib/email";
+import { enviarEmailNovoChamado, enviarEmailAprovacaoPendente } from "@/lib/email";
+import { adicionarDiasUteis, slaAprovacaoDias } from "@/lib/utils";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -18,6 +19,11 @@ export async function POST(req: NextRequest) {
   }
 
   const ehTI = session.user.role === "CONSULTOR_TI";
+  const ehColaborador = session.user.role === "COLABORADOR";
+
+  // Colaboradores passam pela aprovação do gestor do setor antes de chegar ao TI.
+  // Gestores e TI abrindo pelo site vão direto para ABERTO.
+  const statusColaborador = ehColaborador ? "AGUARDANDO_APROVACAO" : "ABERTO";
 
   // Apenas o consultor de TI pode registrar chamados em nome de outro autor (ligação),
   // atribuir consultor diretamente, definir status inicial diferente de ABERTO,
@@ -35,7 +41,7 @@ export async function POST(req: NextRequest) {
         autorId: session.user.id,
         solicitanteNome: null,
         consultorId: null,
-        status: "ABERTO" as const,
+        status: statusColaborador as const,
         canal: "SITE" as const,
         registradoAposLig: false,
       };
@@ -49,11 +55,26 @@ export async function POST(req: NextRequest) {
 
   const { canal: canalFinal, registradoAposLig: registradoAposLigFinal, ...restoLigacao } = dadosLigacao;
 
+  const aguardandoAprovacao = dadosLigacao.status === "AGUARDANDO_APROVACAO";
+
   try {
     const dataValidacaoInicial =
       dadosLigacao.status === "SOLUCAO_PROPOSTA"
         ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
         : null;
+
+    // Prazo (SLA) para o gestor aprovar, conforme urgência (em dias úteis)
+    const prazoAprovacao = aguardandoAprovacao
+      ? adicionarDiasUteis(new Date(), slaAprovacaoDias[urgencia ?? "BAIXA"] ?? 3)
+      : null;
+
+    const observacaoInicial = aguardandoAprovacao
+      ? "Chamado aberto — aguardando aprovação do gestor do setor"
+      : jaResolvido
+      ? `Problema resolvido durante o atendimento telefônico (relatado por ${dadosLigacao.solicitanteNome ?? "colaborador"})`
+      : dadosLigacao.solicitanteNome
+      ? `Chamado registrado pelo TI após atendimento por telefone (relatado por ${dadosLigacao.solicitanteNome})`
+      : "Chamado aberto";
 
     const chamado = await prisma.chamado.create({
       data: {
@@ -66,25 +87,40 @@ export async function POST(req: NextRequest) {
         registradoAposLig: registradoAposLigFinal,
         ...restoLigacao,
         ...(dataValidacaoInicial ? { dataValidacao: dataValidacaoInicial } : {}),
+        ...(prazoAprovacao ? { prazoAprovacao } : {}),
         historico: {
           create: {
             status: dadosLigacao.status,
-            observacao: jaResolvido
-              ? `Problema resolvido durante o atendimento telefônico (relatado por ${dadosLigacao.solicitanteNome ?? "colaborador"})`
-              : dadosLigacao.solicitanteNome
-              ? `Chamado registrado pelo TI após atendimento por telefone (relatado por ${dadosLigacao.solicitanteNome})`
-              : "Chamado aberto",
+            observacao: observacaoInicial,
           },
         },
       },
     });
 
-    // Notifica TI apenas para chamados abertos pelo colaborador via site
-    // Chamados de ligação são registrados pelo próprio TI — não faz sentido notificá-lo
     // IMPORTANTE: aguardamos (await) o envio. Sem await, a função serverless
     // do Vercel é encerrada ao retornar a resposta e o email nunca é enviado.
-    if (canalFinal === "SITE") {
-      const setor = await prisma.setor.findUnique({ where: { id: setorId }, select: { nome: true } });
+    const setor = await prisma.setor.findUnique({ where: { id: setorId }, select: { nome: true } });
+
+    if (aguardandoAprovacao) {
+      // Notifica os gestores do setor para aprovarem o chamado
+      const gestores = await prisma.user.findMany({
+        where: { role: "GESTOR", setorId },
+        select: { email: true },
+      });
+      const emailsGestores = gestores.map((g) => g.email).filter(Boolean) as string[];
+      try {
+        await enviarEmailAprovacaoPendente({
+          gestores: emailsGestores,
+          chamadoId: chamado.id,
+          chamadoTitulo: chamado.titulo,
+          autorNome: session.user.name ?? "Colaborador",
+          setor: setor?.nome ?? "—",
+        });
+      } catch (err) {
+        console.error("[email:aprovacaoPendente]", err instanceof Error ? err.message : err);
+      }
+    } else if (canalFinal === "SITE") {
+      // Chamado que já vai direto para o TI (gestor abrindo pelo site)
       try {
         await enviarEmailNovoChamado({
           chamadoId: chamado.id,
