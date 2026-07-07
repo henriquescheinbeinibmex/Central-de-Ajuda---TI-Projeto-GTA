@@ -55,6 +55,17 @@ model Setor {
   criadoEm DateTime  @default(now())
 }
 
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiraEm  DateTime
+  usadoEm   DateTime?
+  criadoEm  DateTime @default(now())
+
+  @@index([userId])
+}
+
 model Categoria {
   id       String    @id @default(cuid())
   nome     String    @unique

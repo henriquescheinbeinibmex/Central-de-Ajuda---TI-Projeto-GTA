@@ -135,6 +135,30 @@ export async function enviarEmailValidacao(params: {
   });
 }
 
+// ── 5. Recuperação de senha ────────────────────────────────────────
+export async function enviarEmailRecuperacaoSenha(params: {
+  email: string;
+  nome: string;
+  token: string;
+}) {
+  const url = `${process.env.AUTH_URL}/redefinir-senha?token=${params.token}`;
+
+  await enviar({
+    from: FROM,
+    to: [params.email],
+    subject: "[Central TI] Redefinição de senha",
+    html: baseHtml(`
+      <p style="font-size: 16px; font-weight: 600; margin-bottom: 4px;">🔑 Redefinição de senha</p>
+      <p>Olá, <strong>${params.nome}</strong>. Recebemos um pedido para redefinir a senha da sua conta.</p>
+      <p>Clique no botão abaixo para escolher uma nova senha de 4 dígitos. Este link expira em 1 hora.</p>
+      <a href="${url}" style="background: #1d4ed8; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block; font-weight: 600; margin: 12px 0;">
+        Redefinir senha →
+      </a>
+      <p style="color: #64748b; font-size: 13px;">Se você não solicitou esta redefinição, ignore este email. Sua senha atual continuará válida.</p>
+    `),
+  });
+}
+
 // ── 4. Solução proposta ao colaborador ─────────────────────────────
 export async function enviarEmailSolucaoProposta(params: {
   colaboradorEmail: string;
