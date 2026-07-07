@@ -1,25 +1,18 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { prisma } from "./prisma";
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT ?? 587),
-  secure: Number(process.env.SMTP_PORT) === 465,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Destinatários TI: todos os usuários CONSULTOR_TI com email cadastrado
-async function getDestinatariosTI(fallback?: string): Promise<string> {
+const FROM = process.env.SMTP_FROM ?? "Central TI <onboarding@resend.dev>";
+
+async function getDestinatariosTI(fallback?: string): Promise<string[]> {
   const consultores = await prisma.user.findMany({
     where: { role: "CONSULTOR_TI" },
     select: { email: true },
   });
   const emails = consultores.map((u) => u.email).filter(Boolean) as string[];
-  if (emails.length > 0) return emails.join(", ");
-  return fallback ?? "";
+  if (emails.length > 0) return emails;
+  return fallback ? [fallback] : [];
 }
 
 function baseHtml(conteudo: string) {
@@ -45,15 +38,15 @@ export async function enviarEmailNovoChamado(params: {
   urgencia: string;
 }) {
   const to = await getDestinatariosTI();
-  if (!to) return;
+  if (to.length === 0) return;
 
-  const url = `${process.env.NEXTAUTH_URL}/chamados/${params.chamadoId}`;
+  const url = `${process.env.AUTH_URL}/chamados/${params.chamadoId}`;
   const urgenciaLabel: Record<string, string> = {
     ALTA: "🔴 Alta", MEDIA: "🟡 Média", BAIXA: "🟢 Baixa",
   };
 
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
+  await resend.emails.send({
+    from: FROM,
     to,
     subject: `[Central TI] Novo chamado: ${params.chamadoTitulo}`,
     html: baseHtml(`
@@ -77,12 +70,12 @@ export async function enviarEmailChamadoReaberto(params: {
   comentario?: string | null;
 }) {
   const to = await getDestinatariosTI();
-  if (!to) return;
+  if (to.length === 0) return;
 
-  const url = `${process.env.NEXTAUTH_URL}/chamados/${params.chamadoId}`;
+  const url = `${process.env.AUTH_URL}/chamados/${params.chamadoId}`;
 
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
+  await resend.emails.send({
+    from: FROM,
     to,
     subject: `[Central TI] Chamado reaberto: ${params.chamadoTitulo}`,
     html: baseHtml(`
@@ -107,12 +100,12 @@ export async function enviarEmailValidacao(params: {
   chamadoTitulo: string;
 }) {
   const to = await getDestinatariosTI(params.consultorEmail);
-  if (!to) return;
+  if (to.length === 0) return;
 
-  const url = `${process.env.NEXTAUTH_URL}/chamados/${params.chamadoId}`;
+  const url = `${process.env.AUTH_URL}/chamados/${params.chamadoId}`;
 
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
+  await resend.emails.send({
+    from: FROM,
     to,
     subject: `[Central TI] Chamado pronto para validação: ${params.chamadoTitulo}`,
     html: baseHtml(`
@@ -123,6 +116,35 @@ export async function enviarEmailValidacao(params: {
       </div>
       <a href="${url}" style="background: #16a34a; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block; font-weight: 600;">
         Validar chamado →
+      </a>
+    `),
+  });
+}
+
+// ── 4. Solução proposta ao colaborador ─────────────────────────────
+export async function enviarEmailSolucaoProposta(params: {
+  colaboradorEmail: string;
+  colaboradorNome: string;
+  chamadoId: string;
+  chamadoTitulo: string;
+  solucao: string;
+}) {
+  const url = `${process.env.AUTH_URL}/chamados/${params.chamadoId}`;
+
+  await resend.emails.send({
+    from: FROM,
+    to: [params.colaboradorEmail],
+    subject: `[Central TI] Solução proposta para: ${params.chamadoTitulo}`,
+    html: baseHtml(`
+      <p style="font-size: 16px; font-weight: 600; margin-bottom: 4px;">✅ O TI propôs uma solução para o seu chamado</p>
+      <p>Olá, <strong>${params.colaboradorNome}</strong>. O consultor de TI registrou uma solução para o seu chamado.</p>
+      <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 16px 0;">
+        <p style="margin: 0 0 8px 0;"><strong>Chamado:</strong> ${params.chamadoTitulo}</p>
+        <p style="margin: 0;"><strong>Solução:</strong> ${params.solucao}</p>
+      </div>
+      <p>Acesse o chamado para confirmar se o problema foi resolvido ou reabri-lo caso não tenha sido.</p>
+      <a href="${url}" style="background: #16a34a; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block; font-weight: 600;">
+        Ver chamado →
       </a>
     `),
   });
