@@ -8,24 +8,29 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (session?.user.role !== "CONSULTOR_TI") return NextResponse.json({ erro: "Sem permissão" }, { status: 403 });
 
   const { id } = await params;
-  const { nome, username: usernameRaw, email: emailRaw, role, setorId, novaSenha } = await req.json();
+  const { nome, email: emailRaw, role, setorId, novaSenha } = await req.json();
 
-  if (!nome?.trim() || !usernameRaw?.trim() || !emailRaw?.trim()) {
+  if (!nome?.trim() || !emailRaw?.trim()) {
     return NextResponse.json({ erro: "Campos obrigatórios ausentes" }, { status: 400 });
   }
 
-  const username = usernameRaw.trim().toLowerCase();
   const email = emailRaw.trim().toLowerCase();
+  // O login é feito pelo email; mantemos username = email para compatibilidade.
+  const username = email;
+
+  if (novaSenha?.trim() && !/^\d{4}$/.test(novaSenha.trim())) {
+    return NextResponse.json({ erro: "A senha deve ter exatamente 4 dígitos numéricos" }, { status: 400 });
+  }
 
   const conflito = await prisma.user.findFirst({
     where: { OR: [{ email }, { username }], NOT: { id } },
   });
   if (conflito) {
-    return NextResponse.json({ erro: "Usuário ou email já cadastrado para outra conta" }, { status: 409 });
+    return NextResponse.json({ erro: "Email já cadastrado para outra conta" }, { status: 409 });
   }
 
   const data: Record<string, unknown> = { nome, username, email, role, setorId: setorId ?? null };
-  if (novaSenha?.trim()) data.senha = await hash(novaSenha, 12);
+  if (novaSenha?.trim()) data.senha = await hash(novaSenha.trim(), 12);
 
   try {
     const usuario = await prisma.user.update({

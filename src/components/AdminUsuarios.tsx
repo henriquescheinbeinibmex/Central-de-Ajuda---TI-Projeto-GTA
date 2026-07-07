@@ -42,12 +42,12 @@ export default function AdminUsuarios({ usuarios, setores, sessaoId }: Props) {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
 
-  const formVazio = { nome: "", username: "", email: "", senha: "", role: "COLABORADOR", setorId: "" };
+  const formVazio = { nome: "", email: "", senha: "", role: "COLABORADOR", setorId: "" };
   const [form, setForm] = useState(formVazio);
 
   function abrirEdicao(u: Usuario) {
     setEditando(u);
-    setForm({ nome: u.nome, username: u.username, email: u.email, senha: "", role: u.role, setorId: u.setorId ?? "" });
+    setForm({ nome: u.nome, email: u.email, senha: "", role: u.role, setorId: u.setorId ?? "" });
     setMostrarForm(true);
   }
 
@@ -59,9 +59,17 @@ export default function AdminUsuarios({ usuarios, setores, sessaoId }: Props) {
   }
 
   async function salvar() {
-    setSalvando(true);
     setErro("");
 
+    // Senha obrigatória na criação; opcional na edição. Quando informada, 4 dígitos.
+    const senhaInformada = form.senha.trim();
+    if (!editando && !senhaInformada) { setErro("Informe uma senha de 4 dígitos."); return; }
+    if (senhaInformada && !/^\d{4}$/.test(senhaInformada)) {
+      setErro("A senha deve ter exatamente 4 dígitos numéricos.");
+      return;
+    }
+
+    setSalvando(true);
     const payload = { ...form, setorId: form.setorId || null };
     const url = editando ? `/api/usuarios/${editando.id}` : "/api/usuarios";
     const method = editando ? "PUT" : "POST";
@@ -119,21 +127,20 @@ export default function AdminUsuarios({ usuarios, setores, sessaoId }: Props) {
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-800" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Usuário (login) *</label>
-                <input type="text" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-800" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Email *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Email (login) *</label>
                 <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  placeholder="colaborador@empresa.com"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-800" />
+                <p className="text-xs text-slate-400 mt-1">O usuário fará login com este email.</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  {editando ? "Nova senha (deixe em branco para manter)" : "Senha *"}
+                  {editando ? "Nova senha (4 dígitos — deixe em branco para manter)" : "Senha (4 dígitos) *"}
                 </label>
-                <input type="password" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-800" />
+                <input type="password" inputMode="numeric" maxLength={4} value={form.senha}
+                  onChange={(e) => setForm({ ...form, senha: e.target.value.replace(/\D/g, "").slice(0, 4) })}
+                  placeholder="0000"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-800 tracking-widest" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Perfil *</label>
@@ -174,8 +181,7 @@ export default function AdminUsuarios({ usuarios, setores, sessaoId }: Props) {
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
               <th className="text-left px-5 py-3 font-medium text-slate-600">Nome</th>
-              <th className="text-left px-5 py-3 font-medium text-slate-600">Usuário</th>
-              <th className="text-left px-5 py-3 font-medium text-slate-600">Email</th>
+              <th className="text-left px-5 py-3 font-medium text-slate-600">Email (login)</th>
               <th className="text-left px-5 py-3 font-medium text-slate-600">Perfil</th>
               <th className="text-left px-5 py-3 font-medium text-slate-600">Setor</th>
               <th className="text-left px-5 py-3 font-medium text-slate-600">Criado em</th>
@@ -186,7 +192,6 @@ export default function AdminUsuarios({ usuarios, setores, sessaoId }: Props) {
             {usuarios.map((u) => (
               <tr key={u.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-5 py-3 font-medium text-slate-800">{u.nome}</td>
-                <td className="px-5 py-3 text-slate-600 font-mono text-xs">{u.username}</td>
                 <td className="px-5 py-3 text-slate-600">{u.email}</td>
                 <td className="px-5 py-3">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${roleBadge[u.role]}`}>

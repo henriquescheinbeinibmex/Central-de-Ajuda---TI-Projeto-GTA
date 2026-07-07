@@ -18,14 +18,19 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (session?.user.role !== "CONSULTOR_TI") return NextResponse.json({ erro: "Sem permissão" }, { status: 403 });
 
-  const { nome, username: usernameRaw, email: emailRaw, senha, role, setorId } = await req.json();
-  if (!nome || !usernameRaw || !emailRaw || !senha) return NextResponse.json({ erro: "Campos obrigatórios ausentes" }, { status: 400 });
+  const { nome, email: emailRaw, senha, role, setorId } = await req.json();
+  if (!nome || !emailRaw || !senha) return NextResponse.json({ erro: "Campos obrigatórios ausentes" }, { status: 400 });
 
-  const username = usernameRaw.trim().toLowerCase();
   const email = emailRaw.trim().toLowerCase();
+  // O login é feito pelo email; mantemos username = email para compatibilidade.
+  const username = email;
+
+  if (!/^\d{4}$/.test(senha)) {
+    return NextResponse.json({ erro: "A senha deve ter exatamente 4 dígitos numéricos" }, { status: 400 });
+  }
 
   const existe = await prisma.user.findFirst({ where: { OR: [{ email }, { username }] } });
-  if (existe) return NextResponse.json({ erro: "Usuário ou email já cadastrado" }, { status: 409 });
+  if (existe) return NextResponse.json({ erro: "Email já cadastrado" }, { status: 409 });
 
   const senhaHash = await hash(senha, 12);
   try {
